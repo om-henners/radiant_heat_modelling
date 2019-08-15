@@ -21,9 +21,9 @@ class ForestWoodland(Vegetation):
     def surface_fuel_load(self):
         pass
 
-    def __init__(self, separation_distance, site_slope, receiver_height, fdi):
+    def __init__(self, site_slope, receiver_height, fdi):
         self.fdi = fdi
-        super().__init__(separation_distance, site_slope, receiver_height)
+        super().__init__(site_slope, receiver_height)
 
     def _flame_length(self):
         """Flame length calculations based on Table 1.

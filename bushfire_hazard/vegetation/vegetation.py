@@ -32,17 +32,14 @@ class Vegetation(abc.ABC):
     ambient_temperature = 308  # K
     relative_humidity = 0.25
 
-    def __init__(self, separation_distance, site_slope, receiver_height):
+    def __init__(self, site_slope, receiver_height):
         """Required parameters for simulation on a per site basis
 
-        :param separation_distance: horizontal distance from flame to receiver, in metres
         :param site_slope: slope between flame and receiver in radians
         :param receiver_height: height of receiver in metres
         """
-        self.separation_distance = separation_distance
         self.site_slope = site_slope
         self.receiver_height = receiver_height
-
 
     @abc.abstractmethod
     def _flame_length(self):
@@ -64,7 +61,7 @@ class Vegetation(abc.ABC):
     def rate_of_spread(self):
         return self._rate_of_spread()
 
-    def radiant_heat_flux(self):
+    def radiant_heat_flux(self, separation_distance):
         r"""Radiant heat flux as outlined on page 4
 
         Radiant heat flux is calculated as:
@@ -80,27 +77,35 @@ class Vegetation(abc.ABC):
         - $T$ is flame temperature, defaulted to 1200K
         - $\tau$ is transmittance factor
 
+        :param separation_distance: horizontal distance from flame to receiver, in metres
         :rtype: float
         """
-        phi, angle = self.view_factor()
-        tau = self.transmittance_factor(angle)
 
-        return (
-                phi                            # phi
-                * self.flame_emissivity        # epsilon
-                * self.sigma                   # sigma
-                * self.flame_temperature**4    # T**4
-                * tau                          # tau
-        )
+        @np.vectorize
+        def radiant_heat(separation_distance):
+            """Purely here to make the vectorization easy"""
+            phi, angle = self.view_factor(separation_distance)
+            tau = self.transmittance_factor(angle, separation_distance)
 
-    def _view_factor_calc(self, angle):
+            return (
+                    phi                            # phi
+                    * self.flame_emissivity        # epsilon
+                    * self.sigma                   # sigma
+                    * self.flame_temperature**4    # T**4
+                    * tau                          # tau
+            )
+
+        return radiant_heat(separation_distance)
+
+    def _view_factor_calc(self, angle, separation_distance):
         """Given a single view angle return the view factor
 
+        :param separation_distance: horizontal distance from flame to receiver, in metres
         :rtype: float
         """
-        path_length = self.separation_distance - 0.5 * self.flame_length * np.cos(angle)
+        path_length = separation_distance - 0.5 * self.flame_length * np.cos(angle)
         x_1 = (
-            (self.flame_length * np.sin(angle) - 0.5 * self.flame_length * np.cos(angle) * np.tan(self.site_slope) - self.separation_distance * np.tan(self.site_slope) - self.receiver_height) /
+            (self.flame_length * np.sin(angle) - 0.5 * self.flame_length * np.cos(angle) * np.tan(self.site_slope) - separation_distance * np.tan(self.site_slope) - self.receiver_height) /
             path_length
         )
         x_2 = (
@@ -127,7 +132,7 @@ class Vegetation(abc.ABC):
         )
         return phi
 
-    def view_factor(self):
+    def view_factor(self, separation_distance):
         """View factor as outlined on page 5
 
         As per the paper the view factor requires five parameters:
@@ -143,11 +148,12 @@ class Vegetation(abc.ABC):
         such there exists a flame angle which gives the maximum value for the
         view factor - thus this is a numeric optimisation problem.
 
+        :param separation_distance: horizontal distance from flame to receiver, in metres
         :return: the view factor and the angle for that view factor
         :rtype: float, float
         """
         res = minimize_scalar(
-            lambda angle: - self._view_factor_calc(angle),
+            lambda angle: - self._view_factor_calc(angle, separation_distance),
             bounds=(0, np.pi),
             method='bounded'
         )
@@ -161,12 +167,13 @@ class Vegetation(abc.ABC):
         [-1.685e-9, 7.637e-12, -2.085e-13, 2.350e-10],
     ])
 
-    def transmittance_factor(self, angle):
+    def transmittance_factor(self, angle, separation_distance):
         """Transmittance factor as outlined on page 6
 
         Happily we can use numpy broadcasting to calculate this easily.
 
         :param angle: The angle of the flame determined for the maximum view factor
+        :param separation_distance: horizontal distance from flame to receiver, in metres
         :rtype: float
         """
         a_n_coefficients = np.array([
@@ -177,7 +184,7 @@ class Vegetation(abc.ABC):
         ])
         a_n = (a_n_coefficients * self._calculation_coefficients).sum(axis=1)
 
-        path_length = self.separation_distance - 0.5 * self.flame_length * np.cos(angle)
+        path_length = separation_distance - 0.5 * self.flame_length * np.cos(angle)
 
         path_length_powers = path_length ** np.arange(5)
 
