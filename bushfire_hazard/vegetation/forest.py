@@ -51,7 +51,7 @@ class ForestWoodland(Vegetation):
 
 
 class Forest(ForestWoodland):
-    """Specific type based on table on page 3"""
+    """Specific type based on Table 3"""
 
     @property
     def overall_fuel_load(self):
@@ -62,3 +62,13 @@ class Forest(ForestWoodland):
         return 25
 
 
+class Woodland(ForestWoodland):
+    """Specific type based on Table 3"""
+
+    @property
+    def overall_fuel_load(self):
+        return 25  # t/ha
+
+    @property
+    def surface_fuel_load(self):
+        return 15
