@@ -2,6 +2,7 @@
 
 
 __author__ = 'Henry Walshaw'
+__version__ = '0.0.1'  # TODO: setup with bumpversion
 
 
 from .vegetation.forest import Forest
