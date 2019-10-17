@@ -2,6 +2,24 @@ import setuptools
 
 long_description = 'Placeholder description'
 
+
+def requirement_filter(candidate):
+    """
+    Simple filter for requirements.
+
+    Strip comments (lines starting with #) and empty lines. Return the rest.
+
+    :param candidate: line from a requirements.txt file
+    :rtype: bool
+    """
+    candidate = candidate.strip()
+    if not candidate.strip():
+        return False
+    elif candidate.startswith('#'):
+        return False
+    return True
+
+
 setuptools.setup(
     name="bushfire_hazard",  # this should match the name of the module
     version="0.0.1",
@@ -17,5 +35,9 @@ setuptools.setup(
         "License :: All rights reserved",
         "Operating System :: OS Independent",
     ],
-    install_requires=['numpy', 'scipy', 'pymemoize'],  # any additional 3rd party packages that should be installed
+    install_requires=[
+        candidate.strip()
+        for candidate in
+        filter(requirement_filter, open('requirements.txt'))
+    ],  # any additional 3rd party packages that should be installed
 )
